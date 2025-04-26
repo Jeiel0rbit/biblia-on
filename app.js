@@ -69,10 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 db = event.target.result;
                 const transaction = event.target.transaction;
                  if (!db.objectStoreNames.contains(STORE_BOOKS)) {
-                     db.createObjectStore(STORE_BOOKS, { keyPath: 'id' });
+                      db.createObjectStore(STORE_BOOKS, { keyPath: 'id' });
                  }
                  if (!db.objectStoreNames.contains(STORE_CHAPTERS)) {
-                     db.createObjectStore(STORE_CHAPTERS, { keyPath: 'id' });
+                      db.createObjectStore(STORE_CHAPTERS, { keyPath: 'id' });
                  }
                  transaction.onerror = (e) => reject(new Error(`Erro durante onupgradeneeded: ${e.target.error}`));
             };
@@ -160,18 +160,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         const verseNum = parseInt(node.getAttribute('id'), 10);
                         if (!isNaN(verseNum) && verseNum > 0) {
                             let verseText = "";
-                            let nextNode = node.nextSibling;
-                            while (nextNode && !['v', 'c', 've'].includes(nextNode.nodeName)) {
-                                if (nextNode.nodeType === Node.TEXT_NODE) {
-                                    verseText += nextNode.textContent;
+                            let currentNode = node.nextSibling;
+
+                            while (currentNode) {
+                                if (['v', 'c', 've'].includes(currentNode.nodeName)) {
+                                    break;
                                 }
-                                nextNode = nextNode.nextSibling;
+                                if (currentNode.textContent) {
+                                    verseText += currentNode.textContent;
+                                }
+                                currentNode = currentNode.nextSibling;
                             }
+
                             verseText = verseText.trim().replace(/\s+/g, ' ');
+
                             if (verseText) {
                                 versesInCurrentChapter.push({ v: verseNum, text: verseText });
                             } else {
-                                console.warn(`Versículo ${verseNum} no cap ${currentChapterNum} do livro ${bookId} parece vazio.`);
+                                console.warn(`Versículo ${verseNum} no cap ${currentChapterNum} do livro ${bookId} parece vazio ou não contém texto extraível.`);
                             }
                         } else {
                              console.warn(`Número de versículo inválido no livro ${bookId}, cap ${currentChapterNum}: ${node.getAttribute('id')}. Pulando.`);
@@ -206,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }));
                     }
                 } else {
-                     console.warn(`Livro ${bookId} (${bookName}) sem capítulos/versículos válidos.`);
+                     console.warn(`Livro ${bookId} (${bookName}) sem capítulos/versículos válidos processados.`);
                 }
 
                 booksProcessed++;
@@ -301,6 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         books.sort((a, b) => {
             const indexA = CANONICAL_BOOK_ORDER.indexOf(a.id);
             const indexB = CANONICAL_BOOK_ORDER.indexOf(b.id);
+            if (indexA === -1 && indexB === -1) return a.id.localeCompare(b.id);
             if (indexA === -1) return 1;
             if (indexB === -1) return -1;
             return indexA - indexB;
@@ -312,6 +319,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let isNewTestament = false;
         const newTestamentStartIndex = CANONICAL_BOOK_ORDER.indexOf(NEW_TESTAMENT_START_ID);
         const fragment = document.createDocumentFragment();
+
+        const oldTestamentDivider = document.createElement('div');
+        oldTestamentDivider.classList.add('list-group-item', 'disabled', 'bg-light');
+        oldTestamentDivider.innerHTML = `<strong>Antigo Testamento</strong>`;
+        fragment.appendChild(oldTestamentDivider);
 
         books.forEach(book => {
             const bookIndex = CANONICAL_BOOK_ORDER.indexOf(book.id);
@@ -345,20 +357,22 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach(item => {
             const bookName = item.textContent;
             const normalizedBookName = normalizeText(bookName);
-            const isHidden = filter && normalizedBookName.indexOf(filter) === -1 && bookName.toLowerCase().indexOf(filter) === -1;
+            const isHidden = filter &&
+                             normalizedBookName.indexOf(filter) === -1 &&
+                             bookName.toLowerCase().indexOf(filter) === -1;
             item.classList.toggle('hidden', isHidden);
         });
     }
 
     function selectBook(bookId, bookName, chapterCount) {
-        if (!bookId || !bookName || chapterCount === undefined) {
+        if (!bookId || !bookName || chapterCount === undefined || isNaN(parseInt(chapterCount, 10))) {
             console.error("Tentativa de selecionar livro inválido:", bookId, bookName, chapterCount);
             return;
         }
 
         currentBookId = bookId;
         currentBookName = bookName;
-        currentBookChapterCount = parseInt(chapterCount, 10) || 0;
+        currentBookChapterCount = parseInt(chapterCount, 10);
 
         if (selectBookBtn) {
              selectBookBtn.innerHTML = `<i class="bi bi-book-fill me-1"></i><span class="d-none d-sm-inline">${bookName}</span>`;
@@ -371,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveLastReadPosition();
     }
 
-     function populateChapterGridUI(bookName, chapterCount, activeChapter) {
+    function populateChapterGridUI(bookName, chapterCount, activeChapter) {
         if (!chapterModalBookName || !chapterGrid) return;
 
         chapterModalBookName.textContent = bookName;
@@ -384,8 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 button.type = 'button';
                 button.classList.add('btn', 'btn-outline-primary', 'm-1', 'chapter-grid-btn');
                 if (i === activeChapter) {
-                     button.classList.add('active', 'btn-primary');
-                     button.classList.remove('btn-outline-primary');
+                    button.classList.add('active', 'btn-primary');
+                    button.classList.remove('btn-outline-primary');
                 }
                 button.dataset.chapter = i;
                 button.textContent = i;
@@ -402,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const chap = parseInt(chapterNum, 10);
 
         if (!currentBookId || isNaN(chap) || chap < 1 || chap > currentBookChapterCount) {
-            console.warn(`Seleção de capítulo inválida: ${chapterNum} para ${currentBookId}`);
+            console.warn(`Seleção de capítulo inválida: ${chapterNum} para ${currentBookId} (Total: ${currentBookChapterCount})`);
             chapterSelectModal.hide();
             return;
         }
@@ -425,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveLastReadPosition();
     }
 
-     async function loadBibleContent(bookId, chapterNum) {
+    async function loadBibleContent(bookId, chapterNum) {
         if (!bibleContent) return;
 
         bibleContent.setAttribute('aria-busy', 'true');
@@ -442,21 +456,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const chapterData = await getChapterDataFromDB(bookId, chapterNum);
 
             if (chapterData?.verses?.length > 0) {
-                const contentHtml = chapterData.verses.map(v =>
-                    `<p>
-                       <span class="verse-ref user-select-none me-1" tabindex="0" data-verse="${v.v}" role="button" aria-label="Versículo ${v.v}" title="Copiar ${currentBookName} ${chapterNum}:${v.v}">
-                         <strong>${v.v}</strong>
-                       </span>
-                       <span class="verse-text">${v.text}</span>
-                     </p>`
-                ).join('');
-                bibleContent.innerHTML = contentHtml;
+                const fragment = document.createDocumentFragment();
+                chapterData.verses.forEach(v => {
+                     const verseText = v.text || "[Versículo sem texto]";
+                     const p = document.createElement('p');
+                     p.innerHTML = `
+                         <span class="verse-ref user-select-none me-1" tabindex="0" data-verse="${v.v}" role="button" aria-label="Versículo ${v.v}" title="Copiar ${currentBookName} ${chapterNum}:${v.v}">
+                           <strong>${v.v}</strong>
+                         </span>
+                         <span class="verse-text">${verseText}</span>`;
+                     fragment.appendChild(p);
+                });
+                bibleContent.innerHTML = '';
+                bibleContent.appendChild(fragment);
                 bibleContent.focus({ preventScroll: true });
             } else {
                  bibleContent.innerHTML = `<p class="text-warning fst-italic text-center mt-4">Conteúdo não encontrado para ${currentBookName} ${chapterNum}.</p>`;
                  const bookInfo = booksData.find(b => b.id === bookId);
-                 if (!bookInfo || chapterNum > bookInfo.chapterCount) {
-                     console.warn(`Capítulo ${chapterNum} solicitado além dos capítulos (${bookInfo?.chapterCount}) para ${bookId}`);
+                 if (!bookInfo) {
+                      console.warn(`Informações do livro ${bookId} não encontradas nos dados carregados.`);
+                 } else if (chapterNum > bookInfo.chapterCount) {
+                      console.warn(`Capítulo ${chapterNum} solicitado além dos capítulos existentes (${bookInfo.chapterCount}) para ${bookId}`);
+                 } else {
+                      console.warn(`Dados do capítulo ${bookId} ${chapterNum} vieram vazios ou nulos do DB.`);
                  }
             }
         } catch (error) {
@@ -476,8 +498,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 : "Selecione Livro e Capítulo";
         }
         if (selectChapterBtn) selectChapterBtn.disabled = !currentBookId;
-        if (decreaseFontBtn) decreaseFontBtn.disabled = currentFontSizeStep === 0;
-        if (increaseFontBtn) increaseFontBtn.disabled = currentFontSizeStep === FONT_STEPS.length - 1;
+        if (decreaseFontBtn) decreaseFontBtn.disabled = currentFontSizeStep <= 0;
+        if (increaseFontBtn) increaseFontBtn.disabled = currentFontSizeStep >= FONT_STEPS.length - 1;
 
         let prevRefText = '';
         let nextRefText = '';
@@ -488,23 +510,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentBookIndex = booksData.findIndex(b => b.id === currentBookId);
 
             if (currentBookIndex !== -1) {
-                 if (currentChapter > 1) {
-                     isPrevDisabled = false;
-                     prevRefText = `${currentBookName} ${currentChapter - 1}`;
-                 } else if (currentBookIndex > 0) {
-                     isPrevDisabled = false;
-                     const prevBook = booksData[currentBookIndex - 1];
-                     prevRefText = `${prevBook.name} ${prevBook.chapterCount}`;
-                 } else { prevRefText = 'Início'; }
+                if (currentChapter > 1) {
+                    isPrevDisabled = false;
+                    prevRefText = `${currentBookName} ${currentChapter - 1}`;
+                } else if (currentBookIndex > 0) {
+                    isPrevDisabled = false;
+                    const prevBook = booksData[currentBookIndex - 1];
+                    prevRefText = `${prevBook.name} ${prevBook.chapterCount}`;
+                } else {
+                    prevRefText = 'Início';
+                }
 
-                 if (currentChapter < currentBookChapterCount) {
-                     isNextDisabled = false;
-                     nextRefText = `${currentBookName} ${currentChapter + 1}`;
-                 } else if (currentBookIndex < booksData.length - 1) {
-                     isNextDisabled = false;
-                     const nextBook = booksData[currentBookIndex + 1];
-                     nextRefText = `${nextBook.name} 1`;
-                 } else { nextRefText = 'Fim'; }
+                if (currentChapter < currentBookChapterCount) {
+                    isNextDisabled = false;
+                    nextRefText = `${currentBookName} ${currentChapter + 1}`;
+                } else if (currentBookIndex < booksData.length - 1) {
+                    isNextDisabled = false;
+                    const nextBook = booksData[currentBookIndex + 1];
+                    nextRefText = `${nextBook.name} 1`;
+                } else {
+                    nextRefText = 'Fim';
+                }
+            } else {
+                 console.warn(`Livro atual (${currentBookId}) não encontrado na lista de livros para navegação.`);
             }
         }
 
@@ -534,9 +562,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectBook(prevBook.id, prevBook.name, prevBook.chapterCount);
                 setTimeout(() => {
                     if(currentBookId === prevBook.id) {
-                        selectChapter(prevBook.chapterCount);
+                         selectChapter(prevBook.chapterCount);
+                    } else {
+                         console.warn("Navegação anterior: seleção do livro anterior falhou ou foi alterada rapidamente.");
                     }
-                }, 100);
+                }, 50);
             }
         }
     }
@@ -563,11 +593,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const fontSize = isMobile ? FONT_SIZES_MOBILE[currentFontSizeStep] : FONT_SIZES[currentFontSizeStep];
         const fontLabel = FONT_SIZE_LABELS[currentFontSizeStep];
 
-        bibleContent.style.fontSize = fontSize;
+        document.documentElement.style.setProperty('--bible-font-size', fontSize);
+
         fontSizeValue.textContent = fontLabel;
 
-        if (decreaseFontBtn) decreaseFontBtn.disabled = currentFontSizeStep === 0;
-        if (increaseFontBtn) increaseFontBtn.disabled = currentFontSizeStep === FONT_STEPS.length - 1;
+        if (decreaseFontBtn) decreaseFontBtn.disabled = currentFontSizeStep <= 0;
+        if (increaseFontBtn) increaseFontBtn.disabled = currentFontSizeStep >= FONT_STEPS.length - 1;
 
         try {
              localStorage.setItem(FONT_SIZE_KEY, currentFontSizeStep.toString());
@@ -588,30 +619,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-     function copyVerseToClipboard(verseElement) {
-         if (!verseElement || !navigator.clipboard) return;
+    function copyVerseToClipboard(verseElement) {
+        if (!verseElement || !navigator.clipboard) {
+             console.warn("Clipboard API not available or verse element missing.");
+             alert("Não foi possível copiar. Seu navegador pode não suportar esta funcionalidade ou estar em modo inseguro.");
+             return;
+        }
 
-         const verseNum = verseElement.dataset.verse;
-         const verseTextElement = verseElement.nextElementSibling?.matches('.verse-text') ? verseElement.nextElementSibling : null;
-         const verseText = verseTextElement ? verseTextElement.textContent.trim() : '';
+        const verseNum = verseElement.dataset.verse;
+        const verseTextElement = verseElement.nextElementSibling;
 
-         if (verseNum && verseText && currentBookName && currentChapter) {
-             const textToCopy = `${currentBookName} ${currentChapter}:${verseNum} - ${verseText}`;
-             navigator.clipboard.writeText(textToCopy)
-                 .then(() => {
-                     console.log("Versículo copiado:", textToCopy);
-                     if (copiedToast) copiedToast.show();
-                 })
-                 .catch(err => {
-                     console.error("Falha ao copiar versículo:", err);
-                     alert("Erro ao copiar o versículo. Verifique as permissões do navegador.");
-                 });
-         } else {
-              console.warn("Dados incompletos para copiar versículo:", {verseNum, verseText, currentBookName, currentChapter});
-         }
-     }
+        if (!verseTextElement) {
+             console.warn("Não foi possível encontrar o elemento de texto do versículo para:", verseElement);
+             return;
+        }
+        const verseText = verseTextElement.textContent?.trim() ?? '';
 
-     function saveLastReadPosition() {
+        if (verseNum && verseText && currentBookName && currentChapter) {
+            const textToCopy = `${currentBookName} ${currentChapter}:${verseNum} - ${verseText}`;
+            navigator.clipboard.writeText(textToCopy)
+                .then(() => {
+                    console.log("Versículo copiado:", textToCopy);
+                    if (copiedToast) copiedToast.show();
+                })
+                .catch(err => {
+                    console.error("Falha ao copiar versículo:", err);
+                    alert(`Erro ao copiar o versículo (${err.name}): ${err.message}. Verifique as permissões do navegador (área de transferência).`);
+                });
+        } else {
+             console.warn("Dados incompletos para copiar versículo:", {verseNum, verseText, currentBookName, currentChapter});
+             alert("Não foi possível formatar o texto do versículo para cópia.");
+        }
+    }
+
+    function saveLastReadPosition() {
         if (currentBookId && currentChapter) {
             try {
                 const lastRead = {
@@ -632,24 +673,36 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedState = localStorage.getItem(LAST_READ_KEY);
             if (savedState) {
                 const lastRead = JSON.parse(savedState);
-                if (lastRead.bookId && lastRead.chapter && booksData.some(b => b.id === lastRead.bookId)) {
-                     currentBookId = lastRead.bookId;
-                     currentBookName = lastRead.bookName || booksData.find(b => b.id === lastRead.bookId)?.name;
-                     currentBookChapterCount = lastRead.chapterCount || booksData.find(b => b.id === lastRead.bookId)?.chapterCount;
-                     const chapterToLoad = parseInt(lastRead.chapter, 10);
+                if (lastRead.bookId && lastRead.chapter && typeof lastRead.bookId === 'string' && typeof lastRead.chapter === 'number') {
+                    if (booksData.some(b => b.id === lastRead.bookId)) {
+                        currentBookId = lastRead.bookId;
+                        const bookData = booksData.find(b => b.id === lastRead.bookId);
+                        currentBookName = bookData?.name ?? lastRead.bookName ?? 'Livro Desconhecido';
+                        currentBookChapterCount = bookData?.chapterCount ?? lastRead.chapterCount ?? 0;
+                        const chapterToLoad = lastRead.chapter;
 
-                     if (selectBookBtn && currentBookName) {
-                         selectBookBtn.innerHTML = `<i class="bi bi-book-fill me-1"></i><span class="d-none d-sm-inline">${currentBookName}</span>`;
-                         selectBookBtn.title = currentBookName;
-                     }
-                     if (selectChapterBtn) selectChapterBtn.disabled = false;
+                        if (chapterToLoad > 0 && chapterToLoad <= currentBookChapterCount) {
+                           if (selectBookBtn && currentBookName) {
+                                selectBookBtn.innerHTML = `<i class="bi bi-book-fill me-1"></i><span class="d-none d-sm-inline">${currentBookName}</span>`;
+                                selectBookBtn.title = currentBookName;
+                           }
+                           if (selectChapterBtn) selectChapterBtn.disabled = false;
 
-                     selectChapter(chapterToLoad);
-                     console.log(`Posição restaurada: ${currentBookName} ${currentChapter}`);
-                     return true;
+                            selectChapter(chapterToLoad);
+                            console.log(`Posição restaurada: ${currentBookName} ${currentChapter}`);
+                            return true;
+                        } else {
+                             console.warn(`Capítulo salvo (${chapterToLoad}) inválido para ${currentBookName} (Total: ${currentBookChapterCount}). Carregando capítulo 1.`);
+                              selectChapter(1);
+                              return true;
+                        }
+                    } else {
+                         console.warn(`Livro salvo (${lastRead.bookId}) não encontrado nos dados atuais. Ignorando última posição.`);
+                         localStorage.removeItem(LAST_READ_KEY);
+                    }
                 } else {
-                    console.warn("Dados salvos de última leitura inválidos.");
-                    localStorage.removeItem(LAST_READ_KEY);
+                     console.warn("Dados salvos de última leitura inválidos ou incompletos.");
+                     localStorage.removeItem(LAST_READ_KEY);
                 }
             }
         } catch (e) {
@@ -666,17 +719,18 @@ document.addEventListener('DOMContentLoaded', () => {
                  const stepIndex = parseInt(savedStep, 10);
                  if (!isNaN(stepIndex) && stepIndex >= 0 && stepIndex < FONT_STEPS.length) {
                      applyFontSize(stepIndex);
-                     console.log(`Tamanho da fonte restaurado: passo ${stepIndex}`);
+                     console.log(`Tamanho da fonte restaurado: passo ${stepIndex} (${FONT_SIZE_LABELS[stepIndex]})`);
                      return;
                  } else {
-                      console.warn("Valor salvo de tamanho da fonte inválido.");
+                      console.warn(`Valor salvo de tamanho da fonte (${savedStep}) inválido.`);
                       localStorage.removeItem(FONT_SIZE_KEY);
                  }
              }
          } catch (e) {
-             console.error("Erro ao carregar pref. de tamanho da fonte:", e);
-             localStorage.removeItem(FONT_SIZE_KEY);
+              console.error("Erro ao carregar pref. de tamanho da fonte:", e);
+              localStorage.removeItem(FONT_SIZE_KEY);
          }
+         console.log("Aplicando tamanho de fonte padrão.");
          applyFontSize(DEFAULT_FONT_STEP_INDEX);
     }
 
@@ -698,31 +752,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const books = await getBookListFromDB();
             if (books.length === 0 && !isInitialized) {
-                 throw new Error("Falha crítica: DB vazio após tentativa de inicialização.");
+                throw new Error("Falha crítica: DB vazio após tentativa de inicialização, mas nenhum erro reportado.");
+            } else if (books.length === 0 && isInitialized) {
+                 console.warn("DB está inicializado, mas a lista de livros está vazia. Pode indicar problema na leitura do DB.");
             }
-            console.log(`Carregados ${books.length} livros.`);
+            console.log(`Carregados ${books.length} livros do DB.`);
 
             populateBookListUI(books);
             loadFontSizePreference();
 
             const restoredPosition = loadLastReadPosition();
 
-            if (!restoredPosition && books.length > 0) {
-                console.log("Carregando padrão (Gênesis 1).");
+            if (!restoredPosition && booksData.length > 0) {
+                console.log("Nenhuma posição salva válida. Carregando padrão (Primeiro livro, Cap 1).");
                 const firstBook = booksData[0];
                 if (firstBook) {
                     selectBook(firstBook.id, firstBook.name, firstBook.chapterCount);
                 } else {
-                     throw new Error("Não foi possível encontrar o primeiro livro.");
+                     throw new Error("Inconsistência: Há livros, mas não foi possível acessar o primeiro.");
                 }
-            } else if (books.length === 0) {
-                 chapterTitle.textContent = "Nenhum livro carregado";
-                 bibleContent.innerHTML = '<p class="text-danger text-center mt-4">Não foi possível carregar livros. Verifique XML e recarregue.</p>';
-                 selectBookBtn.disabled = true;
-                 selectChapterBtn.disabled = true;
-                 prevChapterBtn.disabled = true;
-                 nextChapterBtn.disabled = true;
-                 optionsMenuBtn.disabled = true;
+            } else if (booksData.length === 0) {
+                 console.error("Nenhum livro disponível para exibição.");
+                 if(chapterTitle) chapterTitle.textContent = "Nenhum Livro Carregado";
+                 if(bibleContent) bibleContent.innerHTML = '<p class="text-danger text-center mt-4">Não foi possível carregar os livros da Bíblia. Verifique o arquivo de dados ou o armazenamento local.</p>';
+                 if(selectBookBtn) selectBookBtn.disabled = true;
+                 if(selectChapterBtn) selectChapterBtn.disabled = true;
+                 if(prevChapterBtn) prevChapterBtn.disabled = true;
+                 if(nextChapterBtn) nextChapterBtn.disabled = true;
+                 if(optionsMenuBtn) optionsMenuBtn.disabled = true;
             }
 
             updateUI();
@@ -730,13 +787,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Erro fatal na inicialização:", error);
             if (chapterTitle) chapterTitle.textContent = "Erro na Inicialização";
-            if (bibleContent) bibleContent.innerHTML = `<div class="alert alert-danger mt-4">Erro ao inicializar: ${error.message}. Recarregue ou verifique console.</div>`;
+            if (bibleContent) bibleContent.innerHTML = `<div class="alert alert-danger mt-4 mx-auto" style="max-width: 600px;"><strong>Erro Crítico ao Inicializar:</strong><br>${error.message}<br><small>Por favor, recarregue a página. Se o problema persistir, verifique o console para mais detalhes.</small></div>`;
             if (initializationMessage) initializationMessage.classList.add('hidden');
             if (selectBookBtn) selectBookBtn.disabled = true;
             if (selectChapterBtn) selectChapterBtn.disabled = true;
             if (prevChapterBtn) prevChapterBtn.disabled = true;
             if (nextChapterBtn) nextChapterBtn.disabled = true;
-             if (optionsMenuBtn) optionsMenuBtn.disabled = true;
+            if (optionsMenuBtn) optionsMenuBtn.disabled = true;
         }
     }
 
@@ -745,67 +802,87 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (selectBookBtn) {
         selectBookBtn.addEventListener('click', () => {
-             if (bookSearchInput) bookSearchInput.value = '';
-             filterBooks();
-             bookSelectModal.show();
+             if (bookSearchInput) {
+                  bookSearchInput.value = '';
+                  filterBooks();
+             }
+             if (booksData.length > 0) {
+                 populateBookListUI(booksData);
+                 bookSelectModal.show();
+                 bookSelectModalEl?.addEventListener('shown.bs.modal', () => {
+                     bookSearchInput?.focus();
+                 }, { once: true });
+             } else {
+                 console.warn("Tentativa de abrir seleção de livros sem livros carregados.");
+             }
         });
     }
-     if (bookSearchInput) {
+    if (bookSearchInput) {
          bookSearchInput.addEventListener('input', filterBooks);
          bookSelectModalEl?.addEventListener('hidden.bs.modal', () => {
              bookSearchInput.value = '';
          });
-     }
-     if (modalBookList) {
+    }
+    if (modalBookList) {
          modalBookList.addEventListener('click', (event) => {
-             if (event.target.tagName === 'A' && event.target.dataset.bookId) {
+             const targetLink = event.target.closest('a.list-group-item-action');
+             if (targetLink && targetLink.dataset.bookId) {
                  event.preventDefault();
-                 const { bookId, bookName, chapters } = event.target.dataset;
+                 const { bookId, bookName, chapters } = targetLink.dataset;
                  selectBook(bookId, bookName, parseInt(chapters, 10));
              }
          });
-     }
+    }
 
     if (selectChapterBtn) {
         selectChapterBtn.addEventListener('click', () => {
              if (currentBookId && currentBookChapterCount > 0) {
                  populateChapterGridUI(currentBookName, currentBookChapterCount, currentChapter);
                  chapterSelectModal.show();
-                 setTimeout(() => {
-                     const activeBtn = chapterGrid.querySelector('.chapter-grid-btn.active') || chapterGrid.querySelector('.chapter-grid-btn');
+                 chapterSelectModalEl?.addEventListener('shown.bs.modal', () => {
+                     const activeBtn = chapterGrid?.querySelector('.chapter-grid-btn.active') || chapterGrid?.querySelector('.chapter-grid-btn');
                      activeBtn?.focus();
-                 }, 200);
+                 }, { once: true });
+             } else {
+                  console.warn("Tentativa de abrir seleção de capítulos sem livro selecionado ou sem capítulos.");
              }
         });
     }
-     if (chapterGrid) {
+    if (chapterGrid) {
          chapterGrid.addEventListener('click', (event) => {
              const targetButton = event.target.closest('.chapter-grid-btn');
              if (targetButton && targetButton.dataset.chapter) {
                  selectChapter(targetButton.dataset.chapter);
              }
          });
-     }
+         chapterGrid.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter') {
+                   const targetButton = event.target.closest('.chapter-grid-btn');
+                   if (targetButton && targetButton.dataset.chapter && document.activeElement === targetButton) {
+                        event.preventDefault();
+                        selectChapter(targetButton.dataset.chapter);
+                   }
+              }
+         });
+    }
 
     if (decreaseFontBtn) decreaseFontBtn.addEventListener('click', decreaseFontSize);
     if (increaseFontBtn) increaseFontBtn.addEventListener('click', increaseFontSize);
 
     if (bibleContent) {
         bibleContent.addEventListener('click', (event) => {
-             const verseRefElement = event.target.closest('.verse-ref');
-             if (verseRefElement) {
-                 copyVerseToClipboard(verseRefElement);
+            const verseRefElement = event.target.closest('.verse-ref');
+            if (verseRefElement) {
+                copyVerseToClipboard(verseRefElement);
+            }
+        });
+        bibleContent.addEventListener('keydown', (event) => {
+             const verseRefElement = document.activeElement?.closest('.verse-ref');
+             if (verseRefElement && (event.key === 'Enter' || event.key === ' ')) {
+                  event.preventDefault();
+                  copyVerseToClipboard(verseRefElement);
              }
         });
-         bibleContent.addEventListener('keydown', (event) => {
-             if (event.key === 'Enter' || event.key === ' ') {
-                 const verseRefElement = event.target.closest('.verse-ref');
-                 if (verseRefElement && document.activeElement === verseRefElement) {
-                      event.preventDefault();
-                      copyVerseToClipboard(verseRefElement);
-                 }
-             }
-         });
     }
 
     initializeApp();
