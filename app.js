@@ -1,7 +1,3 @@
-app.js:
-
-
-
 document.addEventListener('DOMContentLoaded', () => {
 
     const bibleContent = document.getElementById('bibleContent');
