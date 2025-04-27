@@ -26,6 +26,7 @@ body {
     background-color: var(--bs-body-bg);
     color: var(--bs-body-color);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: var(--bs-body-font-size);
 }
 main {
     flex: 1;
@@ -75,7 +76,7 @@ main {
     border-color: var(--gold-dark);
 }
 .navbar-toggler-icon {
-     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2843, 33, 6, 0.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2843, 33, 6, 0.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
 #selectBookBtn, #selectChapterBtn, #optionsMenuBtn {
@@ -122,7 +123,7 @@ main {
 
 #bibleContent {
     line-height: 1.7;
-    font-size: 1.05rem;
+    font-size: var(--bible-font-size, 1.05rem);
     color: #333;
     padding: 0 0.5rem;
 }
@@ -139,8 +140,8 @@ main {
     border: 1px solid transparent;
 }
 .verse-ref:hover {
-     background-color: var(--gold-pale);
-     border-color: var(--gold-dark);
+    background-color: var(--gold-pale);
+    border-color: var(--gold-dark);
 }
 .verse-ref:focus {
     background-color: var(--gold-dark);
@@ -164,7 +165,6 @@ main {
     color: var(--text-on-gold-primary);
     border-color: var(--gold-dark);
 }
-
 
 .navigation-buttons-container {
     padding: 0 0.5rem;
@@ -233,8 +233,8 @@ main {
     color: var(--gold-deep);
 }
 .modal-header .h5 {
-     font-weight: 600;
-     color: var(--gold-deep);
+    font-weight: 600;
+    color: var(--gold-deep);
 }
 .modal-header .bi {
     color: var(--gold-dark);
@@ -336,7 +336,6 @@ main {
     transform: translateY(0);
 }
 
-
 .spinner-border {
     color: var(--gold-primary);
 }
@@ -365,7 +364,9 @@ a:focus-visible, button:focus-visible, [tabindex="0"]:focus-visible {
     #currentReference { max-width: 100px; font-size: 0.8em;}
     #selectBookBtn, #selectChapterBtn, #optionsMenuBtn { padding: 0.2rem 0.4rem; }
     #chapterTitle { font-size: 1.4rem; }
-    #bibleContent { font-size: 1rem; }
+    #bibleContent {
+        font-size: var(--bible-font-size, 1rem); /* Aplicar também no media query, com fallback diferente se necessário */
+    }
     .btn-navigation { padding: 0.5rem 0.8rem; flex-basis: 49%; max-width: 49%; }
     .btn-navigation .button-nav-text { font-size: 0.85rem; }
     .btn-navigation .button-nav-ref { font-size: 0.65rem; }
