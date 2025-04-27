@@ -154,50 +154,37 @@ document.addEventListener('DOMContentLoaded', () => {
                         versesInCurrentChapter = [];
                         if (isNaN(currentChapterNum) || currentChapterNum <= 0) {
                             console.warn(`Número de capítulo inválido no livro ${bookId}: ${node.getAttribute('id')}. Pulando.`);
-                            currentChapterNum = 0; // Reset to avoid adding verses to a bad chapter
+                            currentChapterNum = 0;
                         }
                     } else if (node.nodeName === 'v' && currentChapterNum > 0) {
                         const verseNum = parseInt(node.getAttribute('id'), 10);
                         if (!isNaN(verseNum) && verseNum > 0) {
-                            // --- CORRECTION START ---
-                            // More robust text extraction: collect text content from all subsequent
-                            // siblings until the next verse, chapter, or verse end marker.
                             let verseText = "";
-                            let currentNode = node.nextSibling; // Start checking nodes *after* the <v> tag
+                            let currentNode = node.nextSibling;
 
                             while (currentNode) {
-                                // Stop if we hit the start of the next structure
                                 if (['v', 'c', 've'].includes(currentNode.nodeName)) {
                                     break;
                                 }
-                                // Append text content from any node (text or element)
-                                // This handles text within nested tags like <wj>...</wj>
                                 if (currentNode.textContent) {
                                     verseText += currentNode.textContent;
                                 }
                                 currentNode = currentNode.nextSibling;
                             }
-                            // --- CORRECTION END ---
 
-                            verseText = verseText.trim().replace(/\s+/g, ' '); // Clean up collected text
+                            verseText = verseText.trim().replace(/\s+/g, ' ');
 
                             if (verseText) {
                                 versesInCurrentChapter.push({ v: verseNum, text: verseText });
                             } else {
-                                // Keep warning: Indicates verse might be genuinely empty or uses unusual structure
                                 console.warn(`Versículo ${verseNum} no cap ${currentChapterNum} do livro ${bookId} parece vazio ou não contém texto extraível.`);
-                                // Optional: Decide if you want to store empty verses
-                                // versesInCurrentChapter.push({ v: verseNum, text: "" });
                             }
                         } else {
                              console.warn(`Número de versículo inválido no livro ${bookId}, cap ${currentChapterNum}: ${node.getAttribute('id')}. Pulando.`);
                         }
                     }
-                    // Note: Other node types like 'p', 's', 'q', 'wj' etc. within a verse are handled
-                    // by the corrected text extraction logic above, which uses node.textContent.
                 }
 
-                // Store the last chapter's verses if any
                 if (currentChapterNum > 0 && versesInCurrentChapter.length > 0) {
                     chapters[currentChapterNum] = versesInCurrentChapter;
                 }
@@ -232,17 +219,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateInitProgress(10 + (booksProcessed / totalBooks) * 85);
             }
 
-            // Wait for all DB operations to complete
             await Promise.all([...bookPromises, ...chapterPromises]);
 
-            // Wait for transactions to complete fully
             const bookTxPromise = new Promise((res, rej) => { bookTx.oncomplete = res; bookTx.onerror = e => rej(new Error(`Erro na transação de livros: ${e.target.error}`)); });
             const chapterTxPromise = new Promise((res, rej) => { chapterTx.oncomplete = res; chapterTx.onerror = e => rej(new Error(`Erro na transação de capítulos: ${e.target.error}`)); });
 
             await Promise.all([bookTxPromise, chapterTxPromise]);
 
             updateInitProgress(100);
-            await new Promise(resolve => setTimeout(resolve, 300)); // Short delay for UI feedback
+            await new Promise(resolve => setTimeout(resolve, 300));
 
         } catch (error) {
             console.error("Erro durante parseAndStoreXML:", error);
@@ -250,10 +235,9 @@ document.addEventListener('DOMContentLoaded', () => {
                  initializationMessage.innerHTML = `<div class="alert alert-danger p-2 small">Erro ao inicializar banco de dados: ${error.message}. Verifique console e recarregue.</div>`;
                  initializationMessage.classList.remove('hidden');
             }
-            updateInitProgress(0); // Reset progress on error
-            throw error; // Rethrow to be caught by initializeApp
+            updateInitProgress(0);
+            throw error;
         } finally {
-            // Hide initialization message only if no error was displayed
             if (initializationMessage && !initializationMessage.querySelector('.alert-danger')) {
                 initializationMessage.classList.add('hidden');
             }
@@ -320,25 +304,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateBookListUI(books) {
         if (!modalBookList) return;
 
-        // Sort books according to canonical order before storing globally
         books.sort((a, b) => {
             const indexA = CANONICAL_BOOK_ORDER.indexOf(a.id);
             const indexB = CANONICAL_BOOK_ORDER.indexOf(b.id);
-            // Handle books not found in canonical order (put them at the end)
-            if (indexA === -1 && indexB === -1) return a.id.localeCompare(b.id); // Fallback sort
+            if (indexA === -1 && indexB === -1) return a.id.localeCompare(b.id);
             if (indexA === -1) return 1;
             if (indexB === -1) return -1;
             return indexA - indexB;
         });
 
-        booksData = books; // Store the sorted list
-        modalBookList.innerHTML = ''; // Clear previous list
+        booksData = books;
+        modalBookList.innerHTML = '';
 
         let isNewTestament = false;
         const newTestamentStartIndex = CANONICAL_BOOK_ORDER.indexOf(NEW_TESTAMENT_START_ID);
         const fragment = document.createDocumentFragment();
 
-        // Add Old Testament header if needed (can be styled later)
         const oldTestamentDivider = document.createElement('div');
         oldTestamentDivider.classList.add('list-group-item', 'disabled', 'bg-light');
         oldTestamentDivider.innerHTML = `<strong>Antigo Testamento</strong>`;
@@ -347,10 +328,9 @@ document.addEventListener('DOMContentLoaded', () => {
         books.forEach(book => {
             const bookIndex = CANONICAL_BOOK_ORDER.indexOf(book.id);
 
-            // Add New Testament divider when appropriate
             if (!isNewTestament && bookIndex !== -1 && bookIndex >= newTestamentStartIndex) {
                 const divider = document.createElement('div');
-                divider.classList.add('list-group-item', 'disabled', 'bg-light', 'mt-2'); // Add margin top
+                divider.classList.add('list-group-item', 'disabled', 'bg-light', 'mt-2');
                 divider.innerHTML = `<strong>Novo Testamento</strong>`;
                 fragment.appendChild(divider);
                 isNewTestament = true;
@@ -377,7 +357,6 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach(item => {
             const bookName = item.textContent;
             const normalizedBookName = normalizeText(bookName);
-            // Show if filter is empty OR book name (normalized or original) contains filter
             const isHidden = filter &&
                              normalizedBookName.indexOf(filter) === -1 &&
                              bookName.toLowerCase().indexOf(filter) === -1;
@@ -401,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (selectChapterBtn) selectChapterBtn.disabled = false;
 
-        selectChapter(1); // Default to chapter 1 when selecting a new book
+        selectChapter(1);
         bookSelectModal.hide();
         saveLastReadPosition();
     }
@@ -436,19 +415,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function selectChapter(chapterNum) {
         const chap = parseInt(chapterNum, 10);
 
-        // Validate selection
         if (!currentBookId || isNaN(chap) || chap < 1 || chap > currentBookChapterCount) {
             console.warn(`Seleção de capítulo inválida: ${chapterNum} para ${currentBookId} (Total: ${currentBookChapterCount})`);
-            chapterSelectModal.hide(); // Close modal even on invalid selection from grid
-            // Optionally, load a default or show an error instead of just returning
-            // loadBibleContent(currentBookId, 1); // Example: load first chapter?
+            chapterSelectModal.hide();
             return;
         }
 
         currentChapter = chap;
         loadBibleContent(currentBookId, currentChapter);
 
-        // Update chapter grid UI if it's open/relevant
         const activeChapterBtn = chapterGrid?.querySelector('.chapter-grid-btn.active');
         if (activeChapterBtn) {
             activeChapterBtn.classList.remove('active', 'btn-primary');
@@ -468,7 +443,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!bibleContent) return;
 
         bibleContent.setAttribute('aria-busy', 'true');
-        // Clear previous content and show loading indicator
         bibleContent.innerHTML = `
             <div class="d-flex flex-column justify-content-center align-items-center mt-5 py-5 text-center" aria-hidden="true">
                 <div class="spinner-border text-primary mb-2" role="status">
@@ -476,16 +450,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <span class="text-muted">Carregando ${currentBookName} ${chapterNum}...</span>
             </div>`;
-        updateUI(); // Update nav buttons etc. immediately
+        updateUI();
 
         try {
             const chapterData = await getChapterDataFromDB(bookId, chapterNum);
 
             if (chapterData?.verses?.length > 0) {
-                // Use DocumentFragment for performance when building large content
                 const fragment = document.createDocumentFragment();
                 chapterData.verses.forEach(v => {
-                     // Ensure verse text exists, provide fallback if needed
                      const verseText = v.text || "[Versículo sem texto]";
                      const p = document.createElement('p');
                      p.innerHTML = `
@@ -495,14 +467,11 @@ document.addEventListener('DOMContentLoaded', () => {
                          <span class="verse-text">${verseText}</span>`;
                      fragment.appendChild(p);
                 });
-                bibleContent.innerHTML = ''; // Clear loading indicator
+                bibleContent.innerHTML = '';
                 bibleContent.appendChild(fragment);
-                // Try setting focus to the container for keyboard navigation start point
                 bibleContent.focus({ preventScroll: true });
             } else {
-                // Handle case where chapter exists but has no verses, or DB retrieval failed softly
                  bibleContent.innerHTML = `<p class="text-warning fst-italic text-center mt-4">Conteúdo não encontrado para ${currentBookName} ${chapterNum}.</p>`;
-                 // Log specific reason if possible
                  const bookInfo = booksData.find(b => b.id === bookId);
                  if (!bookInfo) {
                       console.warn(`Informações do livro ${bookId} não encontradas nos dados carregados.`);
@@ -517,8 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bibleContent.innerHTML = `<p class="text-danger fst-italic text-center mt-4">Falha ao carregar capítulo. Verifique console. Detalhes: ${error.message}</p>`;
         } finally {
             bibleContent.setAttribute('aria-busy', 'false');
-            updateUI(); // Ensure UI reflects final state
-            // Scroll to top smoothly after content is loaded/updated
+            updateUI();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     }
@@ -529,9 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `${currentBookName} ${currentChapter}`
                 : "Selecione Livro e Capítulo";
         }
-        // Ensure chapter selection button is enabled only if a book is selected
         if (selectChapterBtn) selectChapterBtn.disabled = !currentBookId;
-        // Update font size buttons based on current step
         if (decreaseFontBtn) decreaseFontBtn.disabled = currentFontSizeStep <= 0;
         if (increaseFontBtn) increaseFontBtn.disabled = currentFontSizeStep >= FONT_STEPS.length - 1;
 
@@ -541,46 +507,41 @@ document.addEventListener('DOMContentLoaded', () => {
         let isNextDisabled = true;
 
         if (currentBookId && currentChapter && booksData.length > 0) {
-            // Find index based on the *current* booksData array (which is sorted)
             const currentBookIndex = booksData.findIndex(b => b.id === currentBookId);
 
             if (currentBookIndex !== -1) {
-                // Check previous chapter/book
                 if (currentChapter > 1) {
                     isPrevDisabled = false;
                     prevRefText = `${currentBookName} ${currentChapter - 1}`;
-                } else if (currentBookIndex > 0) { // Is there a previous book?
+                } else if (currentBookIndex > 0) {
                     isPrevDisabled = false;
                     const prevBook = booksData[currentBookIndex - 1];
-                    prevRefText = `${prevBook.name} ${prevBook.chapterCount}`; // Go to last chapter of prev book
+                    prevRefText = `${prevBook.name} ${prevBook.chapterCount}`;
                 } else {
-                    prevRefText = 'Início'; // Already at the first chapter of the first book
+                    prevRefText = 'Início';
                 }
 
-                // Check next chapter/book
                 if (currentChapter < currentBookChapterCount) {
                     isNextDisabled = false;
                     nextRefText = `${currentBookName} ${currentChapter + 1}`;
-                } else if (currentBookIndex < booksData.length - 1) { // Is there a next book?
+                } else if (currentBookIndex < booksData.length - 1) {
                     isNextDisabled = false;
                     const nextBook = booksData[currentBookIndex + 1];
-                    nextRefText = `${nextBook.name} 1`; // Go to first chapter of next book
+                    nextRefText = `${nextBook.name} 1`;
                 } else {
-                    nextRefText = 'Fim'; // Already at the last chapter of the last book
+                    nextRefText = 'Fim';
                 }
             } else {
                  console.warn(`Livro atual (${currentBookId}) não encontrado na lista de livros para navegação.`);
             }
         }
 
-        // Update Previous Button State
         if (prevChapterBtn) {
              prevChapterBtn.disabled = isPrevDisabled;
              const prevRefSpan = prevChapterBtn.querySelector('.button-nav-ref');
              if (prevRefSpan) prevRefSpan.textContent = prevRefText;
              prevChapterBtn.title = isPrevDisabled ? '' : `Ir para ${prevRefText}`;
         }
-        // Update Next Button State
         if (nextChapterBtn) {
              nextChapterBtn.disabled = isNextDisabled;
              const nextRefSpan = nextChapterBtn.querySelector('.button-nav-ref');
@@ -590,43 +551,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function navigatePrev() {
-        if (prevChapterBtn?.disabled) return; // Don't navigate if disabled
+        if (prevChapterBtn?.disabled) return;
 
         if (currentChapter > 1) {
             selectChapter(currentChapter - 1);
         } else {
-            // Go to the last chapter of the previous book
             const currentBookIndex = booksData.findIndex(b => b.id === currentBookId);
             if (currentBookIndex > 0) {
                 const prevBook = booksData[currentBookIndex - 1];
-                // Select the book first (which defaults to chapter 1)
                 selectBook(prevBook.id, prevBook.name, prevBook.chapterCount);
-                // Then, immediately try to select the *last* chapter of that book.
-                // Use setTimeout to allow the initial book selection/load (which goes to chap 1)
-                // to potentially finish before overriding with the last chapter. Might need adjustment.
                 setTimeout(() => {
-                    // Double-check if the book selection was successful before changing chapter
                     if(currentBookId === prevBook.id) {
                          selectChapter(prevBook.chapterCount);
                     } else {
                          console.warn("Navegação anterior: seleção do livro anterior falhou ou foi alterada rapidamente.");
                     }
-                }, 50); // Small delay, adjust if needed
+                }, 50);
             }
         }
     }
 
     function navigateNext() {
-        if (nextChapterBtn?.disabled) return; // Don't navigate if disabled
+        if (nextChapterBtn?.disabled) return;
 
         if (currentChapter < currentBookChapterCount) {
             selectChapter(currentChapter + 1);
         } else {
-            // Go to the first chapter of the next book
             const currentBookIndex = booksData.findIndex(b => b.id === currentBookId);
             if (currentBookIndex < booksData.length - 1) {
                 const nextBook = booksData[currentBookIndex + 1];
-                // selectBook already defaults to chapter 1
                 selectBook(nextBook.id, nextBook.name, nextBook.chapterCount);
             }
         }
@@ -636,21 +589,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!bibleContent || !fontSizeValue || stepIndex < 0 || stepIndex >= FONT_STEPS.length) return;
 
         currentFontSizeStep = stepIndex;
-        const isMobile = window.innerWidth < 768; // Example breakpoint, adjust as needed
+        const isMobile = window.innerWidth < 768;
         const fontSize = isMobile ? FONT_SIZES_MOBILE[currentFontSizeStep] : FONT_SIZES[currentFontSizeStep];
         const fontLabel = FONT_SIZE_LABELS[currentFontSizeStep];
 
-        // Apply font size to the main content area
-        document.documentElement.style.setProperty('--bible-font-size', fontSize); // Use CSS variable
-        // bibleContent.style.fontSize = fontSize; // Direct style application (alternative)
+        document.documentElement.style.setProperty('--bible-font-size', fontSize);
 
         fontSizeValue.textContent = fontLabel;
 
-        // Update button states
         if (decreaseFontBtn) decreaseFontBtn.disabled = currentFontSizeStep <= 0;
         if (increaseFontBtn) increaseFontBtn.disabled = currentFontSizeStep >= FONT_STEPS.length - 1;
 
-        // Save preference
         try {
              localStorage.setItem(FONT_SIZE_KEY, currentFontSizeStep.toString());
         } catch (e) {
@@ -678,26 +627,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const verseNum = verseElement.dataset.verse;
-        // Find the sibling span containing the verse text
-        const verseTextElement = verseElement.nextElementSibling; //.matches('.verse-text') ? verseElement.nextElementSibling : null;
+        const verseTextElement = verseElement.nextElementSibling;
 
-        // Basic check if the next sibling exists and might contain text
         if (!verseTextElement) {
              console.warn("Não foi possível encontrar o elemento de texto do versículo para:", verseElement);
              return;
         }
-        const verseText = verseTextElement.textContent?.trim() ?? ''; // Use optional chaining and nullish coalescing
+        const verseText = verseTextElement.textContent?.trim() ?? '';
 
         if (verseNum && verseText && currentBookName && currentChapter) {
             const textToCopy = `${currentBookName} ${currentChapter}:${verseNum} - ${verseText}`;
             navigator.clipboard.writeText(textToCopy)
                 .then(() => {
                     console.log("Versículo copiado:", textToCopy);
-                    if (copiedToast) copiedToast.show(); // Show feedback
+                    if (copiedToast) copiedToast.show();
                 })
                 .catch(err => {
                     console.error("Falha ao copiar versículo:", err);
-                    // Provide more user-friendly feedback if possible
                     alert(`Erro ao copiar o versículo (${err.name}): ${err.message}. Verifique as permissões do navegador (área de transferência).`);
                 });
         } else {
@@ -712,7 +658,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const lastRead = {
                     bookId: currentBookId,
                     chapter: currentChapter,
-                    // Store name/count too, helps restore UI faster if book list isn't ready
                     bookName: currentBookName,
                     chapterCount: currentBookChapterCount
                 };
@@ -728,19 +673,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedState = localStorage.getItem(LAST_READ_KEY);
             if (savedState) {
                 const lastRead = JSON.parse(savedState);
-                // Validate the data before using it
                 if (lastRead.bookId && lastRead.chapter && typeof lastRead.bookId === 'string' && typeof lastRead.chapter === 'number') {
-                    // Check if the saved book ID still exists in our loaded data
                     if (booksData.some(b => b.id === lastRead.bookId)) {
-                        // Restore state
                         currentBookId = lastRead.bookId;
-                        // Prefer name/count from loaded data if available, fallback to saved
                         const bookData = booksData.find(b => b.id === lastRead.bookId);
                         currentBookName = bookData?.name ?? lastRead.bookName ?? 'Livro Desconhecido';
                         currentBookChapterCount = bookData?.chapterCount ?? lastRead.chapterCount ?? 0;
                         const chapterToLoad = lastRead.chapter;
 
-                        // Validate chapter number against actual count
                         if (chapterToLoad > 0 && chapterToLoad <= currentBookChapterCount) {
                            if (selectBookBtn && currentBookName) {
                                 selectBookBtn.innerHTML = `<i class="bi bi-book-fill me-1"></i><span class="d-none d-sm-inline">${currentBookName}</span>`;
@@ -748,14 +688,13 @@ document.addEventListener('DOMContentLoaded', () => {
                            }
                            if (selectChapterBtn) selectChapterBtn.disabled = false;
 
-                            // Load the content for the restored position
-                            selectChapter(chapterToLoad); // This will handle loading and UI updates
+                            selectChapter(chapterToLoad);
                             console.log(`Posição restaurada: ${currentBookName} ${currentChapter}`);
-                            return true; // Indicate success
+                            return true;
                         } else {
                              console.warn(`Capítulo salvo (${chapterToLoad}) inválido para ${currentBookName} (Total: ${currentBookChapterCount}). Carregando capítulo 1.`);
-                              selectChapter(1); // Fallback to chapter 1
-                              return true; // Still counts as restoring the book
+                              selectChapter(1);
+                              return true;
                         }
                     } else {
                          console.warn(`Livro salvo (${lastRead.bookId}) não encontrado nos dados atuais. Ignorando última posição.`);
@@ -768,10 +707,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {
             console.error("Erro ao carregar última posição:", e);
-            // Clear potentially corrupted data
              localStorage.removeItem(LAST_READ_KEY);
         }
-        return false; // Indicate failure or no saved state
+        return false;
     }
 
     function loadFontSizePreference() {
@@ -779,21 +717,19 @@ document.addEventListener('DOMContentLoaded', () => {
              const savedStep = localStorage.getItem(FONT_SIZE_KEY);
              if (savedStep !== null) {
                  const stepIndex = parseInt(savedStep, 10);
-                 // Validate the saved step index
                  if (!isNaN(stepIndex) && stepIndex >= 0 && stepIndex < FONT_STEPS.length) {
                      applyFontSize(stepIndex);
                      console.log(`Tamanho da fonte restaurado: passo ${stepIndex} (${FONT_SIZE_LABELS[stepIndex]})`);
-                     return; // Success
+                     return;
                  } else {
                       console.warn(`Valor salvo de tamanho da fonte (${savedStep}) inválido.`);
-                      localStorage.removeItem(FONT_SIZE_KEY); // Remove invalid data
+                      localStorage.removeItem(FONT_SIZE_KEY);
                  }
              }
          } catch (e) {
               console.error("Erro ao carregar pref. de tamanho da fonte:", e);
-              localStorage.removeItem(FONT_SIZE_KEY); // Remove potentially corrupted data
+              localStorage.removeItem(FONT_SIZE_KEY);
          }
-         // Apply default if no valid preference was loaded
          console.log("Aplicando tamanho de fonte padrão.");
          applyFontSize(DEFAULT_FONT_STEP_INDEX);
     }
@@ -808,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!isInitialized) {
                 console.log("Inicializando DB do XML...");
-                await parseAndStoreXML(); // This now throws on critical parse/store errors
+                await parseAndStoreXML();
                 console.log("Parse e armazenamento concluídos.");
             } else {
                  if (initializationMessage) initializationMessage.classList.add('hidden');
@@ -816,39 +752,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const books = await getBookListFromDB();
             if (books.length === 0 && !isInitialized) {
-                // This case should ideally not happen if parseAndStoreXML worked
-                // but didn't throw an error. Indicates a deeper issue.
                 throw new Error("Falha crítica: DB vazio após tentativa de inicialização, mas nenhum erro reportado.");
             } else if (books.length === 0 && isInitialized) {
                  console.warn("DB está inicializado, mas a lista de livros está vazia. Pode indicar problema na leitura do DB.");
-                 // Potentially try re-initializing or showing error
             }
             console.log(`Carregados ${books.length} livros do DB.`);
 
-            // Populate UI and load preferences
-            populateBookListUI(books); // Populates booksData internally after sorting
+            populateBookListUI(books);
             loadFontSizePreference();
 
-            // Attempt to restore last read position
             const restoredPosition = loadLastReadPosition();
 
-            // If no position restored AND there are books, load the default (first book, chap 1)
             if (!restoredPosition && booksData.length > 0) {
                 console.log("Nenhuma posição salva válida. Carregando padrão (Primeiro livro, Cap 1).");
-                const firstBook = booksData[0]; // Assumes booksData is populated and sorted
+                const firstBook = booksData[0];
                 if (firstBook) {
-                    // selectBook will call selectChapter(1)
                     selectBook(firstBook.id, firstBook.name, firstBook.chapterCount);
                 } else {
-                     // Should not happen if booksData.length > 0
                      throw new Error("Inconsistência: Há livros, mas não foi possível acessar o primeiro.");
                 }
             } else if (booksData.length === 0) {
-                 // Handle case where there are truly no books (e.g., XML was empty/invalid, DB read failed)
                  console.error("Nenhum livro disponível para exibição.");
                  if(chapterTitle) chapterTitle.textContent = "Nenhum Livro Carregado";
                  if(bibleContent) bibleContent.innerHTML = '<p class="text-danger text-center mt-4">Não foi possível carregar os livros da Bíblia. Verifique o arquivo de dados ou o armazenamento local.</p>';
-                 // Disable UI elements that depend on books
                  if(selectBookBtn) selectBookBtn.disabled = true;
                  if(selectChapterBtn) selectChapterBtn.disabled = true;
                  if(prevChapterBtn) prevChapterBtn.disabled = true;
@@ -856,18 +782,13 @@ document.addEventListener('DOMContentLoaded', () => {
                  if(optionsMenuBtn) optionsMenuBtn.disabled = true;
             }
 
-            // Final UI update after initial load/restore
             updateUI();
 
         } catch (error) {
-            // Catch errors from openDB, checkDB, parseAndStore, getBookList, or initial load logic
             console.error("Erro fatal na inicialização:", error);
             if (chapterTitle) chapterTitle.textContent = "Erro na Inicialização";
-            // Display error message prominently
             if (bibleContent) bibleContent.innerHTML = `<div class="alert alert-danger mt-4 mx-auto" style="max-width: 600px;"><strong>Erro Crítico ao Inicializar:</strong><br>${error.message}<br><small>Por favor, recarregue a página. Se o problema persistir, verifique o console para mais detalhes.</small></div>`;
-            // Hide initialization progress/message if it was visible
             if (initializationMessage) initializationMessage.classList.add('hidden');
-            // Disable controls on fatal error
             if (selectBookBtn) selectBookBtn.disabled = true;
             if (selectChapterBtn) selectChapterBtn.disabled = true;
             if (prevChapterBtn) prevChapterBtn.disabled = true;
@@ -876,43 +797,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Event Listeners ---
-
     if (prevChapterBtn) prevChapterBtn.addEventListener('click', navigatePrev);
     if (nextChapterBtn) nextChapterBtn.addEventListener('click', navigateNext);
 
-    // Book Selection Modal
     if (selectBookBtn) {
         selectBookBtn.addEventListener('click', () => {
              if (bookSearchInput) {
-                  bookSearchInput.value = ''; // Clear search on open
-                  filterBooks(); // Show all books initially
+                  bookSearchInput.value = '';
+                  filterBooks();
              }
-             // Ensure the list is populated before showing
              if (booksData.length > 0) {
-                 populateBookListUI(booksData); // Re-populate in case data changed? Or rely on initial load.
+                 populateBookListUI(booksData);
                  bookSelectModal.show();
-                 // Set focus to search input after modal is shown
                  bookSelectModalEl?.addEventListener('shown.bs.modal', () => {
                      bookSearchInput?.focus();
-                 }, { once: true }); // Remove listener after first execution
+                 }, { once: true });
              } else {
                  console.warn("Tentativa de abrir seleção de livros sem livros carregados.");
-                 // Optionally show a message to the user
              }
         });
     }
     if (bookSearchInput) {
          bookSearchInput.addEventListener('input', filterBooks);
-         // Clear search when modal is closed
          bookSelectModalEl?.addEventListener('hidden.bs.modal', () => {
              bookSearchInput.value = '';
-             // Optionally reset scroll position of the list
          });
     }
     if (modalBookList) {
          modalBookList.addEventListener('click', (event) => {
-             const targetLink = event.target.closest('a.list-group-item-action'); // Handle clicks inside the link too
+             const targetLink = event.target.closest('a.list-group-item-action');
              if (targetLink && targetLink.dataset.bookId) {
                  event.preventDefault();
                  const { bookId, bookName, chapters } = targetLink.dataset;
@@ -921,13 +834,11 @@ document.addEventListener('DOMContentLoaded', () => {
          });
     }
 
-    // Chapter Selection Modal
     if (selectChapterBtn) {
         selectChapterBtn.addEventListener('click', () => {
              if (currentBookId && currentBookChapterCount > 0) {
                  populateChapterGridUI(currentBookName, currentBookChapterCount, currentChapter);
                  chapterSelectModal.show();
-                 // Focus the active/first chapter button after modal is shown
                  chapterSelectModalEl?.addEventListener('shown.bs.modal', () => {
                      const activeBtn = chapterGrid?.querySelector('.chapter-grid-btn.active') || chapterGrid?.querySelector('.chapter-grid-btn');
                      activeBtn?.focus();
@@ -944,43 +855,36 @@ document.addEventListener('DOMContentLoaded', () => {
                  selectChapter(targetButton.dataset.chapter);
              }
          });
-         // Allow selecting chapter with Enter key if button has focus
          chapterGrid.addEventListener('keydown', (event) => {
               if (event.key === 'Enter') {
                    const targetButton = event.target.closest('.chapter-grid-btn');
                    if (targetButton && targetButton.dataset.chapter && document.activeElement === targetButton) {
-                        event.preventDefault(); // Prevent default button action if any
+                        event.preventDefault();
                         selectChapter(targetButton.dataset.chapter);
                    }
               }
          });
     }
 
-    // Font Size Controls
     if (decreaseFontBtn) decreaseFontBtn.addEventListener('click', decreaseFontSize);
     if (increaseFontBtn) increaseFontBtn.addEventListener('click', increaseFontSize);
 
-    // Verse Copy Functionality (Click and Keyboard)
     if (bibleContent) {
-        // Click listener
         bibleContent.addEventListener('click', (event) => {
             const verseRefElement = event.target.closest('.verse-ref');
             if (verseRefElement) {
                 copyVerseToClipboard(verseRefElement);
             }
         });
-        // Keyboard listener (Enter or Space) for accessibility
         bibleContent.addEventListener('keydown', (event) => {
-             // Check if the focused element is a verse reference
              const verseRefElement = document.activeElement?.closest('.verse-ref');
              if (verseRefElement && (event.key === 'Enter' || event.key === ' ')) {
-                  event.preventDefault(); // Prevent scrolling on Space or default Enter action
+                  event.preventDefault();
                   copyVerseToClipboard(verseRefElement);
              }
         });
     }
 
-    // Initialize the application
     initializeApp();
 
 });
